@@ -26,6 +26,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
         xvfb \
         xauth \
+        tk \
         libgtk-3-0 \
         libdbus-glib-1-2 \
         libxt6 \
@@ -51,7 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libopus0 \
         libwebp7 \
         libwebpdemux2 \
-        libenchant-2-0 \
+        libenchant-2-2 \
         libgudev-1.0-0 \
         libsecret-1-0 \
         libhyphen0 \
