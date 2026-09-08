@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import tempfile
@@ -134,7 +135,21 @@ def atomic_write_text(
                 os.fsync(handle.fileno())
             except OSError:
                 pass
-        os.replace(temp_path, target)
+        try:
+            os.replace(temp_path, target)
+        except OSError as exc:
+            if exc.errno in (errno.EBUSY, errno.EXDEV, errno.EPERM):
+                # Fallback for bind-mounted files (e.g. in Docker containers)
+                # where target is an active mountpoint that cannot be replaced via rename.
+                with open(target, "w", encoding=encoding, newline="\n") as handle:
+                    handle.write(text)
+                    handle.flush()
+                    try:
+                        os.fsync(handle.fileno())
+                    except OSError:
+                        pass
+            else:
+                raise
         ensure_private_file(target)
     finally:
         if fd >= 0:

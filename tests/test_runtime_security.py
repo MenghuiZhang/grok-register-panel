@@ -197,8 +197,22 @@ def test_permission_hardener_covers_runtime_pools_without_following_symlinks():
         assert stat.S_IMODE(external_secret.stat().st_mode) == 0o644
 
 
+def test_atomic_write_text_handles_busy_mountpoint():
+    import errno
+    from unittest.mock import patch
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / "config.json"
+        path.write_text("old\n", encoding="utf-8")
+        def mock_replace(src, dst):
+            raise OSError(errno.EBUSY, "Device or resource busy")
+        with patch("os.replace", side_effect=mock_replace):
+            atomic_write_text(path, "new\n")
+        assert path.read_text(encoding="utf-8") == "new\n"
+
+
 if __name__ == "__main__":
     test_private_file_helpers()
+    test_atomic_write_text_handles_busy_mountpoint()
     test_best_effort_fchmod_handles_missing_windows_api()
     test_runtime_entrypoints_use_cross_platform_fchmod_helper()
     test_blacklist_state_is_data_and_sanitized()
