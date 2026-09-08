@@ -42,6 +42,10 @@ bulk abuse.
 - `runtime_platform.py` owns interpreter discovery, Xvfb selection, and process
   group flags. `webui/process_utils.py` owns project-scoped process discovery
   and termination.
+- `Dockerfile`, `docker-compose.yml`, `.dockerignore`, and
+  `docker-entrypoint.sh` own the containerized installation path. The image must
+  keep a readable procfs at `/proc` (for psutil process safety), never embed
+  real credentials or config, and run as a non-root user.
 - `static_asset_cache.py` is opt-in infrastructure. Its default-off behavior and
   request exclusions are security boundaries, not implementation details.
 - `batch_traffic.py` owns the per-batch loopback proxy meter and aggregate byte

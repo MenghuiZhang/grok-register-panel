@@ -1,0 +1,64 @@
+# Grok Register + Live Panel — containerized with Docker Compose.
+#
+# Usage:
+#   export MONITOR_TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
+#   docker compose up -d --build
+#   open http://127.0.0.1:8787/
+#
+# Notes:
+#   * Keep a readable procfs at /proc in the container. The panel uses psutil to
+#     list and safely stop project-owned batch/orchestration processes; without a
+#     readable /proc it refuses to start/stop jobs (by design, no "ignore process
+#     detection" bypass). We bind-mount the host /proc read-only below.
+#   * Runtime files and credentials stay on the host via bind mounts below. The
+#     image itself contains no real config, token, or proxy credentials.
+#   * The panel binds 127.0.0.1 inside the container by default and we publish on
+#     127.0.0.1:8787 so nothing is exposed on the LAN. For LAN/Tailscale access,
+#     set MONITOR_HOST to the specific interface IP and change the publish line.
+#   * For a single CLI batch instead of the always-on panel, use:
+#       docker compose run --rm app python run_batch_headless.py 5 2
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: grok-register-panel:latest
+    container_name: grok-register-panel
+    init: true
+    restart: unless-stopped
+    environment:
+      # Required for authenticated write APIs; provide a long random value,
+      # e.g. python3 -c 'import secrets; print(secrets.token_urlsafe(32))'.
+      MONITOR_TOKEN: ${MONITOR_TOKEN:?set MONITOR_TOKEN (a long random string)}
+      MONITOR_HOST: ${MONITOR_HOST:-127.0.0.1}
+      MONITOR_PORT: "8787"
+      PANEL_INCLUDE_TAIL: ${PANEL_INCLUDE_TAIL:-0}
+      CPA_AUTH_DIR: /opt/grok-register-panel/cpa_auth
+      # Xvfb auto-detection is the default; keep it for headless operation.
+      GROK_USE_XVFB: ${GROK_USE_XVFB:-auto}
+      # Optional during a release-directory switch.
+      GROK_COMPAT_PROCESS_ROOTS: ${GROK_COMPAT_PROCESS_ROOTS:-}
+      PROXY_POOL_STATE_FILE: ${PROXY_POOL_STATE_FILE:-/opt/grok-register-panel/log/proxy_pool.json}
+      EMAIL_DOMAIN_POOL_STATE_FILE: ${EMAIL_DOMAIN_POOL_STATE_FILE:-/opt/grok-register-panel/log/email_domain_pool.json}
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      # procfs: REQUIRED for psutil-based process start/stop safety.
+      - /proc:/proc:ro
+      # Persistent runtime data on the host.
+      - ./config.json:/opt/grok-register-panel/config.json
+      - ./accounts:/opt/grok-register-panel/accounts
+      - ./cpa_auth:/opt/grok-register-panel/cpa_auth
+      - ./grok2api_auth:/opt/grok-register-panel/grok2api_auth
+      - ./log:/opt/grok-register-panel/log
+    tmpfs:
+      - /run:size=16m,mode=0700
+      # Browser shared memory; small /dev/shm can cause crashes.
+      - /dev/shm:size=1g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+      - SYS_ADMIN

@@ -1,0 +1,26 @@
+# Docker build context exclusions.
+# Keep secrets and generated data out of the image and the local build cache.
+
+**/.git
+**/.venv
+.venv/
+venv/
+accounts/
+cpa_auth/
+grok2api_auth/
+log/
+.cache/
+__pycache__/
+*.py[cod]
+.profiles*
+.DS_Store
+.env
+.env.monitor
+config.json
+proxies.txt
+proxies_secret*.txt
+stickies*.txt
+.browser-profiles/
+auth_out/
+*.bak*
+*.fixed-keep

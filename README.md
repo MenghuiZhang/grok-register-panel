@@ -103,6 +103,7 @@ Based on [AaronL725/grok-register](https://github.com/AaronL725/grok-register) (
 | Linux | 正式支持 | 有显示会话时直启；无显示时面板自动调用 `xvfb-run` |
 | macOS | 正式支持 | 直接使用本机显示会话，不依赖 Xvfb |
 | Windows | 已本机验证，CI 覆盖 Node/Xvfb 解析 | 不依赖 Xvfb；面板直启 `.venv\Scripts\python.exe`。默认 `GROK_HEADLESS=1`（有头模式设 `GROK_HEADED=1`） |
+| Docker | 可选，容器化安装 | 镜像内置 Python 3.11 + Xvfb + Camoufox；`docker compose up -d --build` 启动面板，详见下文“Docker 安装” |
 
 Linux 容器必须保留 procfs（通常为默认的 `/proc` 挂载），面板依赖它读取并安全停止
 当前项目的任务进程。
@@ -136,6 +137,42 @@ powershell -ExecutionPolicy Bypass -File scripts\run_windows_panel.ps1
 Windows 不要把 `PLAYWRIGHT_NODEJS_PATH` 指到 `scripts/playwright-node`（那是 bash 包装）。运行时会解析 `node.exe` 或 Playwright 自带 Node，并用带引号的 `NODE_OPTIONS --require` 注入 EPIPE 保护。代理请写 **Windows 本机可达** 的 URL（例如 `socks5://user:pass@gate.example:1000`），不要沿用 Linux 上的 `127.0.0.1:82xx` mixed 口。
 
 > `pip install` 只装 Python 依赖；**不执行 `camoufox fetch` 无法启动浏览器**。
+
+### Docker 安装（可选）
+
+仓库自带 `Dockerfile` / `docker-compose.yml`，把面板和 Camoufox（含 Xvfb）一起
+打进镜像，适合 Linux 服务器 / NAS 免手工环境。
+
+```bash
+# 1) 生成面板 Token（必设）
+export MONITOR_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+
+# 2) 准备配置与运行时目录
+cp config.example.json config.json
+mkdir -p accounts cpa_auth grok2api_auth log
+chmod 700 accounts cpa_auth grok2api_auth log
+
+# 3) 构建并启动（首次构建会自动执行 camoufox fetch，耗时几分钟）
+docker compose up -d --build
+# 浏览器打开 http://127.0.0.1:8787/ ，面板 Token 填上面的值
+```
+
+**目录挂载**：`config.json`、`accounts/`、`cpa_auth/`、`grok2api_auth/`、`log/` 通过
+`docker-compose.yml` 挂载到宿主机，凭据不入镜像；`/proc` 只读挂载，保证 `psutil`
+能安全识别并停止项目任务进程（切勿屏蔽 `/proc`）。
+
+**代理**：在面板“代理池”导入代理即可（写入 `log/proxy_pool.json`，权限 0600）。
+若仍用旧版 `proxies.txt` / `stickies*.txt`，把它放进仓库根目录后，手动在
+`docker-compose.yml` 的 `volumes` 中加一行挂载即可（构建阶段不会打进镜像）。
+
+> 一次性跑单批（不进面板）：
+>
+> ```bash
+> docker compose run --rm app python run_batch_headless.py 5 2
+> ```
+>
+> 镜像内以非 root 用户运行；若宿主机 bind-mount 目录出现权限问题，请先
+> `chown -R 1000:1000 accounts cpa_auth grok2api_auth log` 或改用具名 volume。
 
 ### 配置（`config.json`）
 
@@ -535,6 +572,12 @@ A: 8787 被其它进程占用（例如同机其它服务）。换 `MONITOR_PORT`
 
 **Q: 启动任务报 `[Errno 2] No such file or directory: '/proc'`？**
 A: 旧版面板直接读取 Linux `/proc`，macOS 上必然失败；更新后面板改用 `psutil`。若新版仍在 Linux 容器中提示无法读取进程列表，说明容器没有挂载 procfs，请恢复默认 `/proc` 挂载后重启面板。不要用“忽略进程检测”绕过，否则可能重复启动任务。
+
+**Q: Docker 面板启动任务报无法读取进程列表 / 权限错误？**
+A: Docker 里同样依赖 `/proc`，请看 `docker-compose.yml` 中 `- /proc:/proc:ro` 是否被修改或屏蔽。另外镜像内是非 root 用户（UID 1000）；对 bind-mount 的 `accounts/cpa_auth/grok2api_auth/log` 若写不进去，先 `chown -R 1000:1000` 这些目录。
+
+**Q: Docker 里能直接用旧版 `proxies.txt` / `stickies*.txt` 吗？**
+A: `.dockerignore` 有意不把它们打进镜像。最稳妥是用面板“代理池”导入；确需文件，请在 `docker-compose.yml` 的 `volumes` 手工加一行把宿主机文件挂到 `/opt/grok-register-panel/<文件名>`。
 
 **Q: Windows？**  
 A: 已本机验证，CI 覆盖 Node/Xvfb 解析。不依赖 Xvfb；用 `scripts\setup_windows.ps1` 安装，`scripts\run_windows_batch.ps1` 跑批。默认 `GROK_HEADLESS=1`。代理必须是本机可达的 HTTP/SOCKS URL，不要沿用 Linux 上的 `127.0.0.1:82xx` mixed 口。详见 `WINDOWS.md`。
