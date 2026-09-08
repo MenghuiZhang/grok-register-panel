@@ -31,7 +31,7 @@ services:
       # Required for authenticated write APIs; provide a long random value,
       # e.g. python3 -c 'import secrets; print(secrets.token_urlsafe(32))'.
       MONITOR_TOKEN: ${MONITOR_TOKEN:?set MONITOR_TOKEN (a long random string)}
-      MONITOR_HOST: ${MONITOR_HOST:-127.0.0.1}
+      MONITOR_HOST: ${MONITOR_HOST:-0.0.0.0}
       MONITOR_PORT: "8787"
       PANEL_INCLUDE_TAIL: ${PANEL_INCLUDE_TAIL:-0}
       CPA_AUTH_DIR: /opt/grok-register-panel/cpa_auth

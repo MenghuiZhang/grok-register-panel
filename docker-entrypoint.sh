@@ -28,7 +28,7 @@ umask 0077
 : "${MONITOR_TOKEN:=$(.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(32))')}"
 export MONITOR_TOKEN
 
-: "${MONITOR_HOST:=127.0.0.1}"
+: "${MONITOR_HOST:=0.0.0.0}"
 : "${MONITOR_PORT:=8787}"
 : "${PANEL_INCLUDE_TAIL:=0}"
 : "${CPA_AUTH_DIR:=$ROOT/cpa_auth}"

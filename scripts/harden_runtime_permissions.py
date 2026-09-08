@@ -15,8 +15,11 @@ PRIVATE_FILE_GLOBS = ("proxies*.txt", "stickies*.txt", "*.cache")
 def chmod_if_regular(path: Path, mode: int) -> bool:
     if path.is_symlink() or not path.is_file():
         return False
-    path.chmod(mode)
-    return True
+    try:
+        path.chmod(mode)
+        return True
+    except PermissionError:
+        return False
 
 
 def main() -> int:
@@ -31,15 +34,21 @@ def main() -> int:
         directory = root / name
         if directory.is_symlink():
             continue
-        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-        directory.chmod(0o700)
-        changed_dirs += 1
+        try:
+            directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+            directory.chmod(0o700)
+            changed_dirs += 1
+        except PermissionError:
+            pass
         for path in directory.rglob("*"):
             if path.is_symlink():
                 continue
             if path.is_dir():
-                path.chmod(0o700)
-                changed_dirs += 1
+                try:
+                    path.chmod(0o700)
+                    changed_dirs += 1
+                except PermissionError:
+                    pass
             elif chmod_if_regular(path, 0o600):
                 changed_files += 1
 
